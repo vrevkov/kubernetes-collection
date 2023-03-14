@@ -1,0 +1,114 @@
+---
+- name: set env variable if ^env-* in group_names
+  set_fact:
+    env_group: "{{ group_names | select('match', '^env-*') | first }}"
+    env: "{{ group_names | select('match', '^env-*') | first | regex_replace('^env-(.+)$', '\\1') }}"
+  when: group_names | select('match', '^env-*') | list | length | bool
+
+- name: set env labels to node
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      label nodes {{ ansible_hostname }} --overwrite=true
+      node-role.kubernetes.io/worker.{{ env }}="" env={{ env }}
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  when:
+    - inventory_hostname not in groups['k8s-master']
+    - env is defined
+
+- name: set labels to node
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      label nodes {{ ansible_hostname }} --overwrite=true
+      {{ item.key }}={{ item.value }}
+  with_dict: "{{ node_labels }}"
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  when:
+    - inventory_hostname not in groups['k8s-master']
+    - node_labels
+
+- name: get current labels from node
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      get node {{ ansible_hostname }} -o=jsonpath='{.metadata.labels}'
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  register: current_labels
+  when:
+    - inventory_hostname not in groups['k8s-master']
+
+- name: form labels to delete
+  set_fact:
+    unwanted_labels: "{{ current_labels.stdout | from_json | list | difference(node_labels) | difference(untouch_labels) \
+                     | reject('search','env') | reject('search','node-role.kubernetes.io') | list }}"
+  when:
+    - inventory_hostname not in groups['k8s-master']
+    - current_labels.stdout
+
+- name: delete unwanted labels
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      label nodes {{ ansible_hostname }} --overwrite=true
+      {{ item }}-
+  loop: "{{ unwanted_labels }}"
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  when:
+    - inventory_hostname not in groups['k8s-master']
+    - unwanted_labels is defined
+
+- name: set taints to node
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      taint nodes {{ ansible_hostname }} --overwrite=true
+      {{ item.key }}={{ item.value }}:{{ item.effect }}
+  loop: "{{ node_taints }}"
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  when:
+    - inventory_hostname not in groups['k8s-master']
+    - node_taints
+
+# - name: get current taints from node
+#   command: >-
+#     kubectl --kubeconfig /etc/kubernetes/admin.conf
+#       get node {{ ansible_hostname }} -o=jsonpath='{.spec.taints}'
+#   delegate_to: "{{ groups['k8s-master'][0] }}"
+#   changed_when: false
+#   register: current_taints
+#   when:
+#     - inventory_hostname not in groups['k8s-master']
+
+# - name: debug current_taints
+#   debug:
+#     msg: "{{ current_taints }}"
+#   when:
+#     - inventory_hostname not in groups['k8s-master']
+#     - current_taints.stdout
+
+# - name: form taints to delete
+#   set_fact:
+#     unwanted_taints: "{{ current_taints.stdout | from_json | list | difference(node_taints) }}"
+#   when:
+#     - inventory_hostname not in groups['k8s-master']
+#     - current_taints.stdout
+
+# - name: debug unwanted_taints
+#   debug:
+#     msg: "{{ unwanted_taints }}"
+#   when:
+#     - inventory_hostname not in groups['k8s-master']
+#     - current_taints.stdout
+
+# - name: delete unwanted taints
+#   command: >-
+#     kubectl --kubeconfig /etc/kubernetes/admin.conf
+#       taint nodes {{ ansible_hostname }} --overwrite=true
+#       {{ item.key }}={{ item.value }}:{{ item.effect }}-
+#   loop: "{{ unwanted_taints }}"
+#   delegate_to: "{{ groups['k8s-master'][0] }}"
+#   changed_when: false
+#   when:
+#     - inventory_hostname not in groups['k8s-master']
+#     - unwanted_taints is defined

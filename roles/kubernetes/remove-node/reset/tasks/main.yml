@@ -1,0 +1,61 @@
+---
+- name: reset kubernetes instance
+  command: kubeadm reset --force
+  ignore_errors: true
+
+- name: unhold packages
+  when: ansible_distribution == "Ubuntu"
+  command: "apt-mark unhold {{ item }}"
+  with_items: "{{ k8s_packages }}"
+  changed_when: false
+  ignore_errors: true
+
+- name: unhold packages
+  when: ansible_distribution == "CentOS"
+  command:
+    cmd: "yum versionlock delete {{ item }}"
+    warn: no
+  with_items: "{{ k8s_packages }}"
+  changed_when: false
+  ignore_errors: true
+
+- name: remove kubernetes packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  with_items: "{{ k8s_packages }}"
+
+- name: remove other packages
+  package:
+    name: "{{ item }}"
+    state: absent
+  with_items:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+
+- name: delete some files and directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /var/lib/etcd
+    - /etc/kubernetes
+    - /var/lib/calico
+    - /run/calico
+    - /etc/containerd/config.toml
+    - /etc/systemd/system/docker.service.d
+    - /etc/systemd/system/containerd.service.d
+    - /bin/crictl
+    - /var/lib/docker
+    - /var/lib/containerd
+  ignore_errors: true
+
+- name: flush iptables
+  iptables:
+    table: "{{ item }}"
+    flush: true
+  with_items:
+    - filter
+    - nat
+  ignore_errors: true

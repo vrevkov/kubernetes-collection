@@ -1,0 +1,50 @@
+---
+# global
+k8s_version: 1.19.9
+k8s_cluster_name: k8s-dev
+k8s_cluster_domain: cluster.local
+k8s_image_repo: "{{ image_repo | default('k8s.gcr.io') }}"
+k8s_pods_subnet: 10.244.0.0/16
+k8s_services_subnet: 10.96.0.0/12
+
+cri_socket: >-
+  {%- if container_manager == 'containerd' -%}
+  /var/run/containerd/containerd.sock
+  {%- else -%}
+  /var/run/dockershim.sock
+  {%- endif -%}
+
+# apiserver
+k8s_apiserver_count: "{{ groups['k8s-master'] | length }}"
+k8s_apiserver_authorization_modes: ['Node', 'RBAC']
+k8s_apiserver_enable_admission_plugins: ['NodeRestriction', 'PodNodeSelector']
+k8s_apiserver_node_port_range: "30000-32767"
+# it's necessary to set in order to create multi-master cluster
+# k8s_apiserver_lb_address: 1.1.1.1
+# k8s_apiserver_lb_port: 6443
+
+# oidc
+k8s_oidc_auth: false
+# k8s_oidc_client_id: oidc-auth-client
+# k8s_oidc_groups_claim: groups
+# k8s_oidc_issuer_url: 
+# k8s_oidc_username_claim: email
+
+# controller manager
+k8s_controller_node_monitor_grace_period: 40s
+k8s_controller_pod_eviction_timeout: 3m0s
+k8s_controller_node_monitor_period: 5s
+
+# kubelet
+kubelet_cgroup_driver: systemd
+kubelet_status_update_frequency: 10s
+kubelet_max_pods: 110
+kubelet_system_memory_reserved: 256Mi
+kubelet_system_cpu_reserved: 250m
+kubelet_kube_memory_reserved: 512Mi
+kubelet_kube_cpu_reserved: 500m
+kubelet_container_log_max_files: 5
+kubelet_container_log_max_size: 10Mi
+
+# profiling
+k8s_profiling: false

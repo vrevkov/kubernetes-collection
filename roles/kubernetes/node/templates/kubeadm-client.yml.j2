@@ -1,0 +1,23 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta1
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: {{ k8s_apiserver_lb_address | default(k8s_apiserver_ip) }}:{{ k8s_apiserver_lb_port | default(k8s_apiserver_port) }}
+    token: {{ kubeadm_token }}
+{% if kubeadm_ca_hash.stdout is defined %}
+    caCertHashes:
+    - sha256:{{ kubeadm_ca_hash.stdout }}
+{% else %}
+    unsafeSkipCAVerification: true
+{% endif %}
+  timeout: 60s
+  tlsBootstrapToken: {{ kubeadm_token }}
+caCertPath: /etc/kubernetes/pki/ca.crt
+nodeRegistration:
+  name: {{ ansible_hostname }}
+  criSocket: {{ cri_socket }}
+  kubeletExtraArgs:
+{% if kubelet_allowed_insafe_sysctls is defined %}
+    allowed-unsafe-sysctls: {{ kubelet_allowed_insafe_sysctls | join(',') }}
+{% endif %}

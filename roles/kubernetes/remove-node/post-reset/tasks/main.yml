@@ -1,0 +1,7 @@
+---
+- name: delete node
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      delete node {{ ansible_hostname }}
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  ignore_errors: yes

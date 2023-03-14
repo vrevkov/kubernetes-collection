@@ -1,0 +1,27 @@
+# reset the whole cluster
+---
+- import_playbook: common/facts.yml
+
+- hosts: k8s-cluster
+  gather_facts: false
+  vars_prompt:
+    name: "reset_confirmation"
+    prompt: "Are you sure you want to reset cluster state? Type 'yes' to reset your cluster."
+    default: "no"
+    private: no
+
+  pre_tasks:
+    - name: check confirmation
+      fail:
+        msg: "Cluster reset confirmation failed"
+      when: reset_confirmation != "yes"
+
+- hosts: k8s-node:k8s-node-system
+  gather_facts: false
+  roles:
+    - { role: kubernetes/remove-node/reset, tags: reset }
+
+- hosts: k8s-master
+  gather_facts: false
+  roles:
+    - { role: kubernetes/remove-node/reset, tags: reset }

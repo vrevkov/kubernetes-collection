@@ -1,0 +1,2 @@
+---
+k8s_packages: ["kubectl-{{ k8s_version }}", "kubelet-{{ k8s_version }}", "kubeadm-{{ k8s_version }}"]

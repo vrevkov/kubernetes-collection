@@ -1,0 +1,19 @@
+---
+- hosts: k8s-cluster
+  gather_facts: false
+  tasks:
+    - name: gather minimal facts
+      setup:
+        gather_subset: '!all'
+      tags:
+        - always
+
+    - name: gather necessary facts
+      setup:
+        gather_subset: '!all,!min,network,hardware'
+        filter: "{{ item }}"
+      loop:
+        - ansible_default_ipv4
+        - ansible_mounts
+      tags:
+        - always

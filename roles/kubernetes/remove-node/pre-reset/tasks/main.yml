@@ -1,0 +1,24 @@
+---
+- name: mark all nodes as unschedulable before drain
+  command: kubectl --kubeconfig /etc/kubernetes/admin.conf cordon {{ item }}
+  with_items:
+    - "{{ node.split(',') }}"
+  failed_when: false
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  run_once: true
+  ignore_errors: yes
+
+- name: drain node except daemonsets resource
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf drain
+      --force
+      --ignore-daemonsets
+      --grace-period {{ drain_grace_period }}
+      --timeout {{ drain_timeout }}
+      --delete-local-data {{ item }}
+  with_items:
+    - "{{ node.split(',') }}"
+  failed_when: false
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  run_once: true
+  ignore_errors: yes

@@ -1,0 +1,21 @@
+---
+- name: create kubelet config dir
+  file:
+    path: "/var/lib/kubelet"
+    state: directory
+    mode: 0755
+
+- name: write kubelet config file
+  template:
+    src: "kubelet-config.yml.j2"
+    dest: "/var/lib/kubelet/config.yaml"
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart kubelet
+
+- name: enable kubelet
+  service:
+    name: kubelet
+    enabled: yes
+    state: started

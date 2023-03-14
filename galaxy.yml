@@ -1,0 +1,18 @@
+---
+namespace: vrevkov
+name: kubernetes
+version: 1.0.0
+readme: README.md
+authors:
+  - Vitalii Revkov <revkov.vi@gmail.com>
+description: Roles for bootstrap, configure and update Kubernetes clusters
+license:
+  - BSD
+license_file: ''
+tags:
+  - devops
+  - kubernetes
+dependencies:
+  "kubernetes.core": ">=2.3.1" 
+repository: https://github.com/vrevkov/kubernetes-collection.git
+build_ignore: []

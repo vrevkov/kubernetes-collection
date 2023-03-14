@@ -1,0 +1,51 @@
+---
+- name: aggregate all SANs
+  set_fact:
+    k8s_apiserver_sans: "{{ (sans_base + groups['k8s-master'] + sans_lb + sans_access_ip + sans_ip + sans_address + sans_hostname + sans_fqdn) | unique }}"
+  vars:
+    sans_base:
+      - "kubernetes"
+      - "kubernetes.default"
+      - "kubernetes.default.svc"
+      - "kubernetes.default.svc.{{ k8s_cluster_domain }}"
+      - "{{ k8s_apiserver_ip }}"
+      - "localhost"
+      - "127.0.0.1"
+    sans_lb: "{{ [k8s_apiserver_lb_address] if k8s_apiserver_lb_address is defined else [] }}"
+    sans_access_ip: "{{ groups['k8s-master'] | map('extract', hostvars, 'access_ip') | list | select('defined') | list }}"
+    sans_ip: "{{ groups['k8s-master'] | map('extract', hostvars, 'ip') | list | select('defined') | list }}"
+    sans_address: "{{ groups['k8s-master'] | map('extract', hostvars, ['ansible_default_ipv4', 'address']) | list | select('defined') | list }}"
+    sans_hostname: "{{ groups['k8s-master'] | map('extract', hostvars, ['ansible_hostname']) | list | select('defined') | list }}"
+    sans_fqdn: "{{ groups['k8s-master'] | map('extract', hostvars, ['ansible_fqdn']) | list | select('defined') | list }}"
+  when: inventory_hostname == groups['k8s-master'][0]
+
+- name: create kubeadm config
+  template:
+    src: "kubeadm-config.yml.j2"
+    dest: "/etc/kubernetes/kubeadm-config.yml"
+  when: inventory_hostname == groups['k8s-master'][0]
+
+- name: initialize first master
+  command: >-
+    timeout -k 300s 300s kubeadm init
+      --config=/etc/kubernetes/kubeadm-config.yml
+  register: kubeadm_init
+  retries: 3
+  until: kubeadm_init is succeeded or "field is immutable" in kubeadm_init.stderr
+  when: inventory_hostname == groups['k8s-master'][0] and not kubeadm_already_run.stat.exists
+  failed_when: kubeadm_init.rc != 0 and "field is immutable" not in kubeadm_init.stderr
+  notify: restart kubelet
+
+- name: upload certificates
+  command: >-
+    kubeadm init phase upload-certs
+      --config=/etc/kubernetes/kubeadm-config.yml
+      --upload-certs
+  register: kubeadm_upload_certs
+  when: inventory_hostname == groups['k8s-master'][0]
+
+# - name: upload kubeadm-config
+#   command: >-
+#     kubeadm config upload from-file
+#       --config=/etc/kubernetes/kubeadm-config.yml
+#   when: inventory_hostname == groups['k8s-master'][0]

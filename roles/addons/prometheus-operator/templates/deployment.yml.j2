@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: prometheus-operator
+  name: prometheus-operator
+  namespace: {{ prometheus_operator_namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus-operator
+  template:
+    metadata:
+      labels:
+        app: prometheus-operator
+    spec:
+      containers:
+        - name: prometheus-operator
+          image: "{{ image_repo }}/prometheus-operator/prometheus-operator:v0.55.0"
+          imagePullPolicy: IfNotPresent
+          args:
+            - --kubelet-service=kube-system/kubelet
+            - --prometheus-config-reloader={{ image_repo }}/prometheus-operator/prometheus-config-reloader:v0.55.0
+            - --thanos-default-base-image={{ image_repo }}/thanos/thanos:v0.25.1
+            - --config-reloader-cpu-request=100m
+            - --config-reloader-cpu-limit=100m
+            - --config-reloader-memory-request=50Mi
+            - --config-reloader-memory-limit=50Mi
+          ports:
+            - containerPort: 8080
+              name: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+      securityContext:
+        fsGroup: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        runAsUser: 65534
+      serviceAccountName: prometheus-operator

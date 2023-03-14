@@ -1,0 +1,48 @@
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+address: 0.0.0.0
+nodeStatusUpdateFrequency: "{{ kubelet_status_update_frequency }}"
+failSwapOn: true
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    cacheTTL: 2m0s
+    enabled: true
+  x509:
+    clientCAFile: /etc/kubernetes/pki/ca.crt
+authorization:
+  mode: Webhook
+  webhook:
+    cacheAuthorizedTTL: 5m0s
+    cacheUnauthorizedTTL: 30s
+enforceNodeAllocatable:
+- pods
+staticPodPath: /etc/kubernetes/manifests
+cgroupDriver: {{ kubelet_cgroup_driver }}
+maxPods: {{ kubelet_max_pods }}
+clusterDomain: {{ k8s_cluster_domain }}
+rotateCertificates: true
+clusterDNS:
+- {{ k8s_dns_address }}
+containerLogMaxFiles: {{ kubelet_container_log_max_files }}
+containerLogMaxSize: {{ kubelet_container_log_max_size }}
+kubeReserved:
+  cpu: {{ kubelet_kube_cpu_reserved | default('250m') }}
+  memory: {{ kubelet_kube_memory_reserved | default('512Mi') }}
+systemReserved:
+  cpu: {{ kubelet_system_cpu_reserved | default('500m') }}
+  memory: {{ kubelet_system_memory_reserved | default('512Mi')}}
+evictionHard:
+  imagefs.available: {{ kubelet_eviction_hard_imagefs | default('10%') }}
+  memory.available: {{ kubelet_eviction_hard_memory | default('3%') }}
+  nodefs.available: 10%
+  nodefs.inodesFree: 5%
+evictionSoft:
+  memory.available: {{ kubelet_eviction_soft_memory | default('6%') }}
+evictionSoftGracePeriod:
+  memory.available: {{ kubelet_eviction_soft_grace_period }}
+featureGates:
+  StartupProbe: true
+volumePluginDir: /var/lib/kubelet/volumeplugins

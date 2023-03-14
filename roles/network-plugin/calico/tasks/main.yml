@@ -1,0 +1,27 @@
+---
+- name: create dir for calico manifests
+  file:
+    path: "/etc/kubernetes/calico"
+    state: directory
+    mode: 0755
+  when: inventory_hostname in groups['k8s-master'][0]
+
+- name: create calico manifests from templates
+  template:
+    src: "{{ item }}.j2"
+    dest: "/etc/kubernetes/calico/{{ item }}"
+  with_items:
+    - kdd-crds.yml
+    - calico-config.yml
+    - calico-kube-controllers.yml
+    - calico-node.yml
+    - calico-rbac.yml
+    - calico-pod-disruption-budget.yml
+  when: inventory_hostname in groups['k8s-master'][0]
+
+- name: apply calico manifests
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      apply -f /etc/kubernetes/calico
+  when: inventory_hostname in groups['k8s-master'][0]
+  changed_when: false

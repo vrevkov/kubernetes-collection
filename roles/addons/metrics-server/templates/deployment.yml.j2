@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-server
+  namespace: {{ metrics_server_namespace }}
+  labels:
+    app: metrics-server
+spec:
+  selector:
+    matchLabels:
+      app: metrics-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: metrics-server
+    spec:
+      serviceAccountName: metrics-server
+      containers:
+        - name: metrics-server
+          image: {{ image_repo }}/{{ metrics_server_image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - /metrics-server
+            - --cert-dir=/tmp
+            - --logtostderr
+            - --secure-port=8443
+            - --kubelet-insecure-tls
+            - --metric-resolution=30s
+          ports:
+            - containerPort: 8443
+              name: https
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: https
+              scheme: HTTPS
+            initialDelaySeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - all
+            readOnlyRootFilesystem: true
+            runAsGroup: 10001
+            runAsNonRoot: true
+            runAsUser: 10001
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

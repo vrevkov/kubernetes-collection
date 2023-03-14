@@ -1,0 +1,42 @@
+---
+containerd_version: 1.5
+containerd_package: 'containerd.io'
+containerd_cfg_dir: /etc/containerd
+containerd_bin_dir: /usr/bin
+
+containerd_storage_dir: "/var/lib/containerd"
+containerd_state_dir: "/run/containerd"
+containerd_oom_score: 0
+
+containerd_default_runtime: "runc"
+containerd_snapshotter: "overlayfs"
+
+containerd_runtimes:
+  - name: runc
+    type: "io.containerd.runc.v2"
+    engine: ""
+    root: ""
+    options:
+      systemdCgroup: "true"
+
+containerd_grpc_max_recv_message_size: 16777216
+containerd_grpc_max_send_message_size: 16777216
+
+containerd_debug_level: "info"
+containerd_log_format: "text"
+
+containerd_metrics_address: ""
+
+containerd_metrics_grpc_histogram: false
+
+containerd_registries: {}
+
+containerd_max_container_log_line_size: -1
+
+# Path to runc binary
+runc_binary: /usr/bin/runc
+
+containerd_package_info:
+  pkgs:
+
+containerd_extra_args: ''

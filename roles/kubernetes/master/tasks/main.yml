@@ -1,0 +1,59 @@
+---
+- name: check control plane endpoint config
+  assert:
+    that: "{{ k8s_apiserver_count | int }} == 1 or ({{ k8s_apiserver_count | int }} > 1 and k8s_apiserver_lb_address is defined)"
+    fail_msg: If you want to deploy multi-master cluster you have to define k8s_apiserver_lb_address variable
+
+- name: check if kubeadm has already run
+  stat:
+    path: "/var/lib/kubelet/config.yaml"
+  register: kubeadm_already_run
+
+# - name: include kubelet tasks
+#   include_tasks: kubelet.yml
+
+- name: include first-master tasks
+  include_tasks: first-master.yml
+
+- name: include other-masters tasks
+  include_tasks: other-masters.yml
+
+- name: set labels to master nodes
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      label nodes {{ ansible_hostname }} --overwrite=true
+      {{ item.key }}={{ item.value }}
+  loop:
+    - { "key": "env", "value": "system" }
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  when:
+    - inventory_hostname in groups['k8s-master']
+  tags: labels
+
+- name: create system namespace
+  kubernetes.core.k8s:
+    state: present
+    apply: true
+    definition: "{{ lookup('template', 'namespaces/system.yml.j2') | from_yaml }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  run_once: true
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+
+- name: create system-all-nodes namespace
+  kubernetes.core.k8s:
+    state: present
+    apply: true
+    definition: "{{ lookup('template', 'namespaces/system-all-nodes.yml.j2') | from_yaml }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  run_once: true
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+
+- name: create monitoring namespace
+  kubernetes.core.k8s:
+    state: present
+    apply: true
+    definition: "{{ lookup('template', 'namespaces/monitoring.yml.j2') | from_yaml }}"
+    kubeconfig: /etc/kubernetes/admin.conf
+  run_once: true
+  delegate_to: "{{ groups['k8s-master'][0] }}"

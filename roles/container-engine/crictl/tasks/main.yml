@@ -1,0 +1,28 @@
+---
+- name: download crictl
+  ansible.builtin.unarchive:
+    src: "{{ crictl_url }}"
+    dest: /usr/bin/crictl
+    remote_src: yes
+    owner: root
+    mode: 0755
+
+- name: install crictl config
+  template:
+    src: crictl.yaml.j2
+    dest: /etc/crictl.yaml
+    owner: root
+    mode: 0644
+
+- name: get crictl completion
+  command: "/usr/bin/crictl completion"
+  changed_when: False
+  register: cri_completion
+  check_mode: false
+
+- name: install crictl completion
+  copy:
+    dest: /etc/bash_completion.d/crictl
+    content: "{{ cri_completion.stdout }}"
+    mode: 0644
+s

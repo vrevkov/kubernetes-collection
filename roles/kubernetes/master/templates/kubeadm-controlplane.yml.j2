@@ -1,0 +1,18 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: JoinConfiguration
+discovery:
+  bootstrapToken:
+    apiServerEndpoint: {{ k8s_apiserver_lb_address | default(k8s_apiserver_ip) }}:{{ k8s_apiserver_lb_port | default(k8s_apiserver_port) }}
+    token: {{ kubeadm_token }}
+    unsafeSkipCAVerification: true
+  timeout: 60s
+  tlsBootstrapToken: {{ kubeadm_token }}
+controlPlane:
+  localAPIEndpoint:
+    advertiseAddress: {{ ip | default(ansible_default_ipv4) }}
+    bindPort: {{ k8s_apiserver_port }}
+  certificateKey: {{ kubeadm_certificate_key }}
+nodeRegistration:
+  name: {{ ansible_hostname }}
+  criSocket: {{ cri_socket }}

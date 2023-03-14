@@ -1,0 +1,32 @@
+---
+- name: check if kubeadm has already run
+  stat:
+    path: "/var/lib/kubelet/config.yaml"
+  register: kubeadm_already_run
+
+- name: include join to cluster tasks
+  include_tasks: join.yml
+
+- name: include kubelet tasks
+  include_tasks: kubelet.yml
+
+- name: set labels to system nodes
+  command: >-
+    kubectl --kubeconfig /etc/kubernetes/admin.conf
+      label nodes {{ ansible_hostname }} --overwrite=true
+      {{ item.key }}={{ item.value }}
+  loop:
+    - { "key": "env", "value": "system" }
+    - { "key": "node-role.kubernetes.io/worker.system", "value": "" }
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  changed_when: false
+  when:
+    - inventory_hostname in groups['k8s-node-system']
+  tags: labels
+
+- name: include labels tasks
+  include_tasks:
+    file: labels.yml
+    apply:
+      tags: labels
+  tags: labels

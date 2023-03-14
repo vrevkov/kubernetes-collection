@@ -1,0 +1,64 @@
+---
+- name: gather os specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution|lower }}.yml"
+      skip: true
+
+- name: unhold docker-ce
+  when: ansible_distribution == "Ubuntu"
+  command: "apt-mark unhold {{ docker_package }}"
+  changed_when: false
+
+- name: install docker-ce
+  package:
+    name: "{{ docker_package }}"
+    state: present
+  notify: restart docker
+  when: allow_restart_docker|default(True)|bool
+
+- name: hold docker-ce
+  when: ansible_distribution == "Ubuntu"
+  command: "apt-mark hold {{ docker_package }}"
+  changed_when: false
+
+- name: hold docker-ce
+  when: ansible_distribution == "CentOS"
+  command:
+    cmd: "yum versionlock {{ docker_package }}"
+    warn: no
+  changed_when: false
+
+- name: create docker dirs
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: 0755
+  with_items:
+    - "{{ docker_config_dir }}"
+    - "{{ docker_systemd_dir }}"
+
+- name: create daemon.json
+  template:
+    src: daemon.json.j2
+    dest: "{{ docker_config_dir }}/daemon.json"
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart docker
+
+- name: create http-proxy.conf
+  template:
+    src: http-proxy.conf.j2
+    dest: "{{ docker_systemd_dir }}/http-proxy.conf"
+    owner: root
+    group: root
+    mode: 0644
+  notify: restart docker
+
+- name: enable docker
+  service:
+    name: docker
+    enabled: yes
+    state: started

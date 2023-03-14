@@ -1,0 +1,16 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    app: kube-state-metrics
+  name: kube-state-metrics
+  namespace: {{ kube_state_metrics_namespace }}
+spec:
+  endpoints:
+  - honorLabels: true
+    port: http-metrics
+  jobLabel: app
+  selector:
+    matchLabels:
+      app: kube-state-metrics

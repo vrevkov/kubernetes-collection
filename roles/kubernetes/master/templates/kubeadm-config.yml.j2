@@ -1,0 +1,151 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: {{ ip | default(ansible_default_ipv4) }}
+  bindPort: {{ k8s_apiserver_port }}
+nodeRegistration:
+{% if inventory_hostname in groups['k8s-master'] and inventory_hostname not in groups['k8s-node'] and inventory_hostname not in groups['k8s-node-system'] %}
+  taints:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+{% else %}
+  taints: []
+{% endif %}
+  criSocket: {{ cri_socket }}
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+clusterName: {{ k8s_cluster_name }}
+dns:
+  type: CoreDNS
+networking:
+  dnsDomain: {{ k8s_cluster_domain }}
+  serviceSubnet: {{ k8s_services_subnet }}
+  podSubnet: {{ k8s_pods_subnet }}
+kubernetesVersion: {{ k8s_version }}
+controlPlaneEndpoint: {{ k8s_apiserver_lb_address | default(k8s_apiserver_ip) }}:{{ k8s_apiserver_lb_port | default(k8s_apiserver_port) }}
+imageRepository: {{ k8s_image_repo }}
+apiServer:
+  extraArgs:
+    anonymous-auth: "true"
+    authorization-mode: {{ k8s_apiserver_authorization_modes | join(',') }}
+    bind-address: 0.0.0.0
+{% if k8s_apiserver_enable_admission_plugins | length > 0 %}
+    enable-admission-plugins: {{ k8s_apiserver_enable_admission_plugins | join(',') }}
+{% endif %}
+    apiserver-count: "{{ k8s_apiserver_count }}"
+    endpoint-reconciler-type: lease
+    service-node-port-range: {{ k8s_apiserver_node_port_range }}
+    profiling: "{{ k8s_profiling }}"
+    allow-privileged: "true"
+    feature-gates: "StartupProbe=true"
+{% if k8s_oidc_auth|default(false) and k8s_oidc_issuer_url is defined and k8s_oidc_client_id is defined and not k8s_oidc_internal_dex %}
+    oidc-issuer-url: "{{ k8s_oidc_issuer_url }}"
+    oidc-client-id: "{{ k8s_oidc_client_id }}"
+{%   if k8s_oidc_username_claim is defined %}
+    oidc-username-claim: "{{ k8s_oidc_username_claim }}"
+{%   endif %}
+{%   if k8s_oidc_groups_claim is defined %}
+    oidc-groups-claim: "{{ k8s_oidc_groups_claim }}"
+{%   endif %}
+{% endif %}
+  certSANs:
+{% for san in k8s_apiserver_sans %}
+  - {{ san }}
+{% endfor %}
+  timeoutForControlPlane: 5m0s
+controllerManager:
+  extraArgs:
+    node-monitor-grace-period: {{ k8s_controller_node_monitor_grace_period }}
+    node-monitor-period: {{ k8s_controller_node_monitor_period }}
+    pod-eviction-timeout: {{ k8s_controller_pod_eviction_timeout }}
+    node-cidr-mask-size: "24"
+    profiling: "{{ k8s_profiling }}"
+    terminated-pod-gc-threshold: "12500"
+    bind-address: 0.0.0.0
+    configure-cloud-routes: "false"
+    flex-volume-plugin-dir: /var/lib/kubelet/volumeplugins
+scheduler:
+  extraArgs:
+    bind-address: 0.0.0.0
+etcd:
+  local:
+    extraArgs:
+      listen-metrics-urls: http://0.0.0.0:2381
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+bindAddress: 0.0.0.0
+clientConnection:
+ acceptContentTypes: ''
+ burst: 10
+ contentType: application/vnd.kubernetes.protobuf
+ kubeconfig: ''
+ qps: 5
+clusterCIDR: {{ k8s_pods_subnet }}
+configSyncPeriod: 15m0s
+conntrack:
+ maxPerCore: 32768
+ min: 131072
+ tcpCloseWaitTimeout: 1h0m0s
+ tcpEstablishedTimeout: 24h0m0s
+enableProfiling: false
+healthzBindAddress: 0.0.0.0:10256
+hostnameOverride: {{ ansible_hostname }}
+iptables:
+ masqueradeAll: false
+ masqueradeBit: 14
+ minSyncPeriod: 0s
+ syncPeriod: 30s
+ipvs:
+ excludeCIDRs: []
+ minSyncPeriod: 0s
+ scheduler: ''
+ syncPeriod: 30s
+ strictARP: false
+metricsBindAddress: 0.0.0.0:10249
+mode: ''
+nodePortAddresses: []
+oomScoreAdj: -999
+portRange: ''
+udpIdleTimeout: 250ms
+---
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+address: 0.0.0.0
+nodeStatusUpdateFrequency: "{{ kubelet_status_update_frequency }}"
+failSwapOn: true
+authentication:
+  anonymous:
+    enabled: false
+  webhook:
+    cacheTTL: 2m0s
+    enabled: true
+  x509:
+    clientCAFile: /etc/kubernetes/pki/ca.crt
+authorization:
+  mode: Webhook
+  webhook:
+    cacheAuthorizedTTL: 5m0s
+    cacheUnauthorizedTTL: 30s
+enforceNodeAllocatable:
+- pods
+staticPodPath: /etc/kubernetes/manifests
+cgroupDriver: {{ kubelet_cgroup_driver }}
+maxPods: {{ kubelet_max_pods }}
+clusterDomain: {{ k8s_cluster_domain }}
+rotateCertificates: true
+clusterDNS:
+- {{ k8s_dns_address }}
+containerLogMaxFiles: {{ kubelet_container_log_max_files }}
+containerLogMaxSize: {{ kubelet_container_log_max_size }}
+kubeReserved:
+  cpu: {{ kubelet_kube_master_cpu_reserved | default('500m') }}
+  memory: {{ kubelet_kube_master_memory_reserved | default('512Mi') }}
+systemReserved:
+  cpu: {{ kubelet_system_master_cpu_reserved | default('250m') }}
+  memory: {{ kubelet_system_master_memory_reserved | default('256Mi')}}
+featureGates:
+  StartupProbe: true
+volumePluginDir: /var/lib/kubelet/volumeplugins

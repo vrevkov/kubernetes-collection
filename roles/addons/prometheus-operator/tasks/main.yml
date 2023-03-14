@@ -1,0 +1,95 @@
+---
+- name: apply manifests
+  block:
+    - name: apply crd alertmanagers
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/alertmanagers.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd alertmanagerconfigs
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/alertmanagerconfigs.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd podmonitors
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/podmonitors.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd probes
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/probes.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd prometheuses
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/prometheuses.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd prometheusrules
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/prometheusrules.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd servicemonitors
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/servicemonitors.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply crd thanosrulers
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('file', 'crds/thanosrulers.yml') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply serviceaccount
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'serviceaccount.yml.j2') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply clusterrole
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'clusterrole.yml.j2') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply clusterrolebinding
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'clusterrolebinding.yml.j2') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply service
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'service.yml.j2') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply deployment
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'deployment.yml.j2') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: apply servicemonitor
+      kubernetes.core.k8s:
+        state: present
+        definition: "{{ lookup('template', 'servicemonitor.yml.j2') | from_yaml }}"
+        kubeconfig: /etc/kubernetes/admin.conf
+
+    - name: wait until prometheus-operator deployment is ready
+      command: >-
+        timeout -k 120s 120s kubectl --kubeconfig /etc/kubernetes/admin.conf
+          rollout status Deployment/prometheus-operator -n {{ prometheus_operator_namespace }}
+      changed_when: false
+
+  when:
+    - inventory_hostname in groups['k8s-master'][0]

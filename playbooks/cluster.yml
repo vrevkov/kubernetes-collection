@@ -1,0 +1,38 @@
+# setup cluster and nodes
+---
+- import_playbook: common/facts.yml
+
+- hosts: k8s-master:k8s-node-system
+  gather_facts: false
+  roles:
+    - { role: kubernetes/prepare-os, tags: prepare-os }
+    - { role: container-engine, tags: container-engine }
+    - { role: container-engine/crictl, tags: container-engine, when: container_manager == 'containerd'}
+
+- hosts: k8s-master
+  gather_facts: false
+  roles:
+    - { role: kubernetes/master, tags: master }
+    - { role: network-plugin/calico, tags: calico }
+
+- hosts: k8s-node-system
+  gather_facts: false
+  roles:
+    - { role: kubernetes/node, tags: node }
+
+- hosts: k8s-node
+  gather_facts: false
+  roles:
+    - { role: addons/nmap, tags: nmap}
+    - { role: kubernetes/prepare-os, tags: prepare-os }
+    - { role: container-engine, tags: container-engine }
+    - { role: container-engine/crictl, tags: container-engine, when: container_manager == 'containerd'}
+    - { role: kubernetes/node, tags: node }
+    - { role: kubernetes/env, tags: env }
+
+- hosts: k8s-master[0]
+  gather_facts: false
+  roles:
+    - { role: addons/prometheus-operator, tags: [ addons, prometheus-operator ] }
+    - { role: addons/metrics-server, tags: [ addons, metrics-server ] }
+    - { role: addons/kube-state-metrics, tags: [ addons, kube-state-metrics ] }

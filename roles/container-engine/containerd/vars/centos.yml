@@ -1,0 +1,10 @@
+---
+containerd_versioned_pkg:
+  'latest': "{{ containerd_package }}"
+  '1.4': "{{ containerd_package }}-1.4.13-3.1.el{{ ansible_distribution_major_version }}"
+  '1.5': "{{ containerd_package }}-1.5.10-3.1.el{{ ansible_distribution_major_version }}"
+  'stable': "{{ containerd_package }}-1.5.10-3.1.el{{ ansible_distribution_major_version }}"
+
+containerd_package_info:
+  pkgs:
+    - "{{ containerd_versioned_pkg[containerd_version | string] }}"

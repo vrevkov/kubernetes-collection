@@ -1,0 +1,29 @@
+# remove node/s from a cluster
+---
+- import_playbook: common/facts.yml
+
+- hosts: k8s-cluster
+  gather_facts: false
+  vars_prompt:
+    name: "delete_nodes_confirmation"
+    prompt: "Are you sure you want to delete nodes state? Type 'yes' to delete nodes."
+    default: "no"
+    private: no
+
+  pre_tasks:
+    - name: check confirmation
+      fail:
+        msg: "Delete nodes confirmation failed"
+      when: delete_nodes_confirmation != "yes"
+
+    - name: check node variable
+      fail:
+        msg: "Please set nodes to remove"
+      when: node is not defined
+
+- hosts: "{{ node | default('localhost') }}"
+  gather_facts: false
+  roles:
+    - { role: kubernetes/remove-node/pre-reset, tags: pre-reset }
+    - { role: kubernetes/remove-node/reset, tags: reset, when: reset_nodes | default(True) }
+    - { role: kubernetes/remove-node/post-reset, tags: post-reset }

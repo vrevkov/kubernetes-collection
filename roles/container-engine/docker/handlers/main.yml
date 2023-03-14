@@ -1,0 +1,24 @@
+---
+- name: restart docker
+  command: /bin/true
+  notify:
+    - docker | reload systemd
+    - docker | restart docker
+    - docker | wait for docker
+
+- name: docker | reload systemd
+  systemd:
+    daemon_reload: true
+
+- name: docker | restart docker
+  service:
+    name: docker
+    state: restarted
+  when: allow_restart_docker|default(False)|bool
+
+- name: docker | wait for docker
+  command: docker images
+  register: docker_ready
+  retries: 20
+  delay: 1
+  until: docker_ready.rc == 0

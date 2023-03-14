@@ -1,0 +1,9 @@
+---
+calico_version: "v3.18.1"
+calico_ipip_mode: CrossSubnet
+
+# resources
+calico_node_memory_limit: 500M
+calico_node_cpu_limit: 300m
+calico_node_memory_requests: 64M
+calico_node_cpu_requests: 150m

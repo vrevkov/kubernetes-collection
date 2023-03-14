@@ -1,0 +1,84 @@
+---
+- name: gather os specific variables
+  include_vars: "{{ item }}"
+  with_first_found:
+    - files:
+        - "{{ ansible_distribution|lower }}.yml"
+      skip: true
+
+- name: remove swapfile from /etc/fstab
+  mount:
+    name: "{{ item }}"
+    fstype: swap
+    state: absent
+  with_items:
+    - swap
+    - none
+
+- name: check swap
+  command: /sbin/swapon -s
+  register: swapon
+  changed_when: false
+
+- name: disable swap
+  command: swapoff -a
+  when: swapon.stdout
+
+- name: remove swap arg from /etc/default/grub
+  replace:
+    path: /etc/default/grub
+    regexp: '^(GRUB_CMDLINE_LINUX.*)(\s+.+swap\s+)(.*)?$'
+    replace: '\1 \3'
+
+- name: update grub config
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  changed_when: false
+
+- name: create docker dir
+  file:
+    path: /var/lib/docker
+    state: directory
+    mode: 0755
+  when: container_manager == 'docker'
+
+- name: create containerd dir
+  file:
+    path: /var/lib/containerd
+    state: directory
+    mode: 0755
+  when: container_manager == 'containerd'
+
+- name: unhold k8s packages
+  when: ansible_distribution == "Ubuntu"
+  command: "apt-mark unhold {{ item }}"
+  with_items: "{{ k8s_packages }}"
+  changed_when: false
+
+- name: clean outdated yum cache
+  when: ansible_distribution == "Centos"
+  command: "yum clean all"
+
+- name: install kubernetes packages
+  package:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ k8s_packages }}"
+
+- name: hold k8s packages
+  when: ansible_distribution == "Ubuntu"
+  command: "apt-mark hold {{ item }}"
+  with_items: "{{ k8s_packages }}"
+  changed_when: false
+
+- name: hold k8s packages
+  when: ansible_distribution == "CentOS"
+  command:
+    cmd: "yum versionlock {{ item }}"
+    warn: no
+  with_items: "{{ k8s_packages }}"
+  changed_when: false
+
+- name: create kubernetes config dir
+  file:
+    path: /etc/kubernetes
+    state: directory

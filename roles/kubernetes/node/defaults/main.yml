@@ -1,0 +1,32 @@
+---
+node_labels: {}
+untouch_labels:
+  - "beta.kubernetes.io/arch"
+  - "beta.kubernetes.io/os"
+  - "kubernetes.io/arch"
+  - "kubernetes.io/os"
+  - "kubernetes.io/hostname"
+node_taints: []
+
+# kubelet
+kubelet_cgroup_driver: systemd
+kubelet_status_update_frequency: 10s
+kubelet_max_pods: 110
+kubelet_system_memory_reserved: 512Mi
+kubelet_system_cpu_reserved: 500m
+kubelet_kube_memory_reserved: 256Mi
+kubelet_kube_cpu_reserved: 250m
+kubelet_eviction_hard_memory: 512Mi
+kubelet_eviction_hard_imagefs: 10%
+kubelet_eviction_soft_memory: 1Gi
+kubelet_eviction_soft_grace_period: 60s
+kubelet_container_log_max_files: 5
+kubelet_container_log_max_size: 10Mi
+kubelet_allowed_insafe_sysctls: ['net.core.somaxconn']
+
+cri_socket: >-
+  {%- if container_manager == 'containerd' -%}
+  /var/run/containerd/containerd.sock
+  {%- else -%}
+  /var/run/dockershim.sock
+  {%- endif -%}

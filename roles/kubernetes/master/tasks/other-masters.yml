@@ -1,0 +1,62 @@
+---
+- name: wait for k8s apiserver
+  wait_for:
+    host: "{{ k8s_apiserver_lb_address | default(k8s_apiserver_ip) }}"
+    port: "{{ k8s_apiserver_lb_port | default(k8s_apiserver_port) }}"
+    timeout: 180
+  when: inventory_hostname != groups['k8s-master'][0] and not kubeadm_already_run.stat.exists
+
+- name: parse certificate key if not set
+  set_fact:
+    kubeadm_certificate_key: "{{ hostvars[groups['k8s-master'][0]]['kubeadm_upload_certs'].stdout_lines[-1] | trim }}"
+  when:
+    - hostvars[groups['k8s-master'][0]]['kubeadm_upload_certs'] is defined
+    - hostvars[groups['k8s-master'][0]]['kubeadm_upload_certs'] is not skipped
+
+- name: calculate kubeadm CA cert hash
+  shell: |
+    set -o pipefail
+    openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+  register: kubeadm_ca_hash
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  run_once: true
+  args:
+    executable: /bin/bash
+  when:
+    - inventory_hostname != groups['k8s-master'][0] and not kubeadm_already_run.stat.exists
+    - kubeadm_ca_hash is not defined
+
+- name: create kubeadm token for joining nodes with 1h expiration
+  command: kubeadm token create --ttl 1h
+  register: temp_token
+  delegate_to: "{{ groups['k8s-master'][0] }}"
+  run_once: true
+  when:
+    - kubeadm_token is not defined
+#    - kubeadm_already_run is not defined or not kubeadm_already_run.stat.exists or create_join_token == 'true'
+
+- name: set kubeadm_token to generated token
+  set_fact:
+    kubeadm_token: "{{ temp_token.stdout }}"
+  when:
+    - kubeadm_token is not defined
+#    - kubeadm_already_run is not defined or not kubeadm_already_run.stat.exists or create_join_token == 'true'
+
+- name: create kubeadm ControlPlane config
+  template:
+    src: "kubeadm-controlplane.yml.j2"
+    dest: "/etc/kubernetes/kubeadm-controlplane.yml"
+    backup: yes
+  when: inventory_hostname != groups['k8s-master'][0] and not kubeadm_already_run.stat.exists
+
+- name: join control plane node to the cluster
+  shell: >-
+    if [ -f /etc/kubernetes/manifests/kube-apiserver.yaml ]; then
+    kubeadm reset -f;
+    fi &&
+    kubeadm join
+    --config /etc/kubernetes/kubeadm-controlplane.yml
+  register: kubeadm_join_control_plane
+  retries: 3
+  until: kubeadm_join_control_plane is succeeded
+  when: inventory_hostname != groups['k8s-master'][0] and not kubeadm_already_run.stat.exists
